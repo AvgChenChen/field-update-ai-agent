@@ -14,6 +14,14 @@ Output: the trade, work status, delay, blocker, resolved dates (*Thursday → 20
 missing information, follow-up questions, scheduling conflicts with upcoming tasks, and draft
 messages, all schema-validated and all pending human approval.
 
+## Quick start
+
+```bash
+uv venv && uv pip install -e ".[dev]"
+python -m field_agent.cli "Drywall delivery got pushed to Thursday, crew can't hang until it lands." --received 2026-11-02
+LLM_PROVIDER=heuristic uvicorn field_agent.api:app --reload    # offline; API docs at http://localhost:8000/docs
+```
+
 ## The problem
 
 Site updates arrive as texts, emails and voicemails. Each has to be read, interpreted
@@ -99,6 +107,8 @@ cp .env.example .env
 | Docker | `docker build -t field-update-ai-agent . && docker run -p 8000:8000 field-update-ai-agent` |
 
 Interactive API docs: http://localhost:8000/docs
+
+![API documentation generated from the code](docs/images/api-docs.png)
 
 ### Environment
 
@@ -266,7 +276,7 @@ and `evaluation/results/heuristic-holdout-latest.md`.
 - **Personal data.** Phones and emails are redacted before storage (raw storage is off by default). Logs carry a fingerprint and length, never message text.
 - **Secrets.** All keys come from the environment; `.env` is gitignored. API-key comparison is constant-time.
 - **Abuse limits.** Requests are capped at 4,000 characters (2,000 analysed, with truncation reported) and 50 schedule-context tasks.
-- **Dependencies.** `pip-audit` currently reports advisories in `certifi` (a runtime dependency, via the HTTP clients) and `filelock` (pulled in by `pip-audit` itself). Fixed releases came out 13–14 days before this build. This repo only takes releases at least two weeks old (`[tool.uv] exclude-newer`), so moving that date forward is the pending fix. CI's audit step stays blocking until then.
+- **Dependencies.** Installs resolve only to releases published before a fixed date (`[tool.uv] exclude-newer`) as a supply-chain precaution. That date was moved forward once to take security fixes in `certifi` and `filelock`. `pip-audit` reports no known vulnerabilities and is a blocking CI step.
 
 ## Engineering trade-offs
 
