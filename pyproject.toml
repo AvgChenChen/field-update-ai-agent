@@ -24,8 +24,9 @@ build-backend = "hatchling.build"
 packages = ["src/field_agent"]
 
 [tool.uv]
-# Only resolve releases that have been public for at least two weeks.
-exclude-newer = "2026-10-17T00:00:00Z"
+# Only resolve releases published before this date (a supply-chain precaution).
+# Moved to Oct 19 to pick up the certifi 2026.10.18 and filelock 4.2.1 security fixes.
+exclude-newer = "2026-10-19T00:00:00Z"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
