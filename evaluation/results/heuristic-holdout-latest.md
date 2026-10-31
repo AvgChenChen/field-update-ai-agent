@@ -1,6 +1,6 @@
 # Evaluation: heuristic (keyword-rules-v1)
 
-Run at 20261031T160802Z on `holdout.jsonl` (14 fictional messages).
+Run at 20261031T165331Z on `holdout.jsonl` (14 fictional messages).
 
 | Metric | Result |
 |---|---|
@@ -10,6 +10,7 @@ Run at 20261031T160802Z on `holdout.jsonl` (14 fictional messages).
 | Blocker yes/no correct | 11/14 (78.6%) |
 | Blocker category correct (labelled cases) | 2/7 (28.6%) |
 | Relative dates resolved correctly (labelled cases) | n/a |
+| Schedule conflicts detected correctly (cases with schedule context) | n/a |
 | Unsupported assumptions in raw output | 0 |
 | Unsupported assumptions after guardrails | 0 |
 | Injection attempts flagged | 1/1 (100.0%) |
