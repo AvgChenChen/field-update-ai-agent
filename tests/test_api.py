@@ -92,6 +92,13 @@ def test_api_key_is_enforced_when_configured():
     assert client.get("/health").status_code == 200  # health stays public
 
 
+def test_non_ascii_api_key_is_rejected_not_a_server_error():
+    """Regression for issue #1: compare_digest on non-ASCII str raised TypeError (HTTP 500)."""
+    client, _ = client_for(api_key="test-key-not-secret")
+    raw = "t\u00e9st-key".encode("latin-1")  # sent as raw bytes, as a real client could
+    assert client.post("/v1/extract", json={"message": "hi"}, headers={"X-API-Key": raw}).status_code == 401
+
+
 def test_malformed_llm_output_returns_502_not_a_guess():
     client, store = client_for(MockProvider(["{oops", "still not json"]))
     r = client.post("/v1/updates", json={"message": BRIEF_MESSAGE})
