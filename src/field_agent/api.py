@@ -71,15 +71,15 @@ def create_app(settings: Settings | None = None, provider: LLMProvider | None = 
     async def _refused(_: Request, exc: ProviderRefused) -> JSONResponse:
         return JSONResponse(status_code=422, content={"error": "provider_refused", "detail": str(exc)})
 
-    @app.get("/health")
+    @app.get("/health", tags=["System"])
     def health() -> dict[str, str]:
         return {"status": "ok", "provider": provider.name, "model": provider.model, "prompt_version": PROMPT_VERSION}
 
-    @app.get("/v1/schema/extraction", dependencies=auth)
+    @app.get("/v1/schema/extraction", dependencies=auth, tags=["Extraction"])
     def extraction_schema() -> dict:
         return ExtractionResult.model_json_schema()
 
-    @app.post("/v1/extract", response_model=ExtractResponse, dependencies=auth)
+    @app.post("/v1/extract", response_model=ExtractResponse, dependencies=auth, tags=["Extraction"])
     def extract(body: ExtractRequest) -> ExtractResponse:
         """Stateless extraction. Nothing is stored and no actions are proposed."""
         outcome = extractor.extract(body.message, body.project_hint, body.sender_role, body.received_on, body.schedule_context)
@@ -93,7 +93,7 @@ def create_app(settings: Settings | None = None, provider: LLMProvider | None = 
             latency_ms=outcome.latency_ms,
         )
 
-    @app.post("/v1/updates", response_model=UpdateRecord, status_code=201, dependencies=auth)
+    @app.post("/v1/updates", response_model=UpdateRecord, status_code=201, dependencies=auth, tags=["Updates"])
     def create_update(body: ExtractRequest) -> UpdateRecord:
         """Extract, store the update, and queue proposed actions for human approval."""
         outcome = extractor.extract(body.message, body.project_hint, body.sender_role, body.received_on, body.schedule_context)
@@ -108,14 +108,14 @@ def create_app(settings: Settings | None = None, provider: LLMProvider | None = 
             conflicts=outcome.conflicts,
         )
 
-    @app.get("/v1/updates/{update_id}", response_model=UpdateRecord, dependencies=auth)
+    @app.get("/v1/updates/{update_id}", response_model=UpdateRecord, dependencies=auth, tags=["Updates"])
     def get_update(update_id: str) -> UpdateRecord:
         try:
             return store.get_update(update_id)
         except NotFound:
             raise HTTPException(status_code=404, detail="Update not found") from None
 
-    @app.get("/v1/actions", response_model=list[ProposedAction], dependencies=auth)
+    @app.get("/v1/actions", response_model=list[ProposedAction], dependencies=auth, tags=["Approvals"])
     def list_actions(
         status: ActionStatus | None = None, limit: Annotated[int, Query(ge=1, le=500)] = 100
     ) -> list[ProposedAction]:
@@ -129,12 +129,12 @@ def create_app(settings: Settings | None = None, provider: LLMProvider | None = 
         except AlreadyReviewed:
             raise HTTPException(status_code=409, detail="Action has already been reviewed") from None
 
-    @app.post("/v1/actions/{action_id}/approve", response_model=ProposedAction, dependencies=auth)
+    @app.post("/v1/actions/{action_id}/approve", response_model=ProposedAction, dependencies=auth, tags=["Approvals"])
     def approve(action_id: str, body: ReviewRequest) -> ProposedAction:
         """A person approves the action. It is written to the outbox; this prototype never sends anything."""
         return _review(action_id, ActionStatus.approved, body)
 
-    @app.post("/v1/actions/{action_id}/reject", response_model=ProposedAction, dependencies=auth)
+    @app.post("/v1/actions/{action_id}/reject", response_model=ProposedAction, dependencies=auth, tags=["Approvals"])
     def reject(action_id: str, body: ReviewRequest) -> ProposedAction:
         return _review(action_id, ActionStatus.rejected, body)
 
