@@ -1,3 +1,5 @@
+from datetime import date
+
 import pytest
 
 from field_agent.guardrails import apply_guardrails, count_unsupported
@@ -84,3 +86,44 @@ def test_duration_only_in_a_question_is_not_evidence(message):
 def test_duration_stated_before_a_question_is_kept():
     result, report = run("Electrician needs another day. Can you let the drywallers know?", delay={"estimated_days": 1})
     assert result.delay.estimated_days == 1 and report.removed_unsupported == []
+
+
+# A day name supports an estimate only when the two agree (DEVLOG "Known residuals").
+# Received on Monday 2026-11-02: "Thursday" is 3 working days away, "tomorrow" is 1.
+MONDAY = date(2026, 11, 2)
+
+
+def run_on(message, received=MONDAY, **overrides):
+    report = GuardrailReport()
+    result = apply_guardrails(ExtractionResult.model_validate(make_result(**overrides)), message, None, report, received)
+    return result, report
+
+
+@pytest.mark.parametrize(
+    ("message", "estimate"),
+    [
+        ("Electrician is out sick, back Thursday.", 3),
+        ("Electrician finishes tomorrow.", 1),
+        ("Plumber needs two more days, should be done by Thursday.", 2),  # a stated duration wins
+    ],
+)
+def test_estimate_that_agrees_with_the_day_named_is_kept(message, estimate):
+    result, report = run_on(message, delay={"estimated_days": estimate})
+    assert result.delay.estimated_days == estimate
+    assert report.removed_unsupported == []
+
+
+@pytest.mark.parametrize(
+    ("message", "estimate"),
+    [
+        ("Electrician is out sick, back Thursday.", 1),
+        ("Electrician finishes tomorrow.", 4),
+        # The duration is only asked about; "until Thursday" alone doesn't make 1 day true.
+        ("Drywall might have to wait until Thursday. Can someone check if they need another day?", 1),
+    ],
+)
+def test_estimate_that_contradicts_the_day_named_is_removed(message, estimate):
+    result, report = run_on(message, delay={"estimated_days": estimate})
+    assert result.delay.estimated_days is None
+    assert any("estimated_days" in r for r in report.removed_unsupported)
+    assert "delay duration" in result.missing_information
