@@ -11,7 +11,7 @@ from datetime import date
 
 from .dates import resolve
 from .schemas import ExtractionResult, GuardrailReport
-from .vocab import DURATION_EVIDENCE, GENERIC_WORDS, TRADE_EVIDENCE, normalise_words
+from .vocab import DURATION_EVIDENCE, GENERIC_WORDS, TRADE_EVIDENCE, normalise_words, stated_text
 
 LOW_CONFIDENCE_THRESHOLD = 0.5
 
@@ -29,7 +29,7 @@ def apply_guardrails(
     low = set(r.confidence.low_confidence_fields)
 
     # 1. A delay duration needs evidence in the text ("another day", "Thursday", "2 weeks").
-    if r.delay.estimated_days is not None and not DURATION_EVIDENCE.search(message):
+    if r.delay.estimated_days is not None and not DURATION_EVIDENCE.search(stated_text(message)):
         report.removed_unsupported.append(f"delay.estimated_days={r.delay.estimated_days:g} (no duration in message)")
         r.delay.estimated_days = None
         if not _mentions_missing(r.missing_information, "duration"):
@@ -97,7 +97,7 @@ def apply_guardrails(
 def count_unsupported(result: ExtractionResult, message: str) -> list[str]:
     """Used by the evaluation: which values in a *raw* extraction lack support in the message."""
     problems = []
-    if result.delay.estimated_days is not None and not DURATION_EVIDENCE.search(message):
+    if result.delay.estimated_days is not None and not DURATION_EVIDENCE.search(stated_text(message)):
         problems.append("estimated_days")
     if result.project_ref:
         ref = {w for w in normalise_words(result.project_ref) if w not in GENERIC_WORDS and len(w) >= 3}
