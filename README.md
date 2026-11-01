@@ -49,7 +49,7 @@ validation, dates, schedule logic and anything that acts on the world.
 | Prompt-injection handling: delimited input, an output schema with no "approve" field, detection flags | `sanitize.py`, `prompts.py` |
 | No autonomous decisions: every action is `pending_approval` until a named person approves it | `actions.py`, `store.py` |
 | Personal-data handling: phones and emails redacted before storage; logs hold a fingerprint, not text | `redact.py`, `logging_setup.py` |
-| Evaluation harness, 38 development and 14 held-out cases, with an append-only results history | `evaluation/` |
+| Evaluation harness, 41 development and 14 held-out cases, with an append-only results history | `evaluation/` |
 
 ## Architecture
 
@@ -201,13 +201,14 @@ pip-audit --skip-editable
 | `test_schemas.py` | Bad enums, out-of-range values and **extra fields** (e.g. `approved: true`) are rejected |
 | `test_sanitize_redact.py` | Injection patterns fire, ordinary messages don't, delimiters can't be closed, phones and emails are redacted |
 | `test_pipeline.py` | **Mocked LLM responses**: valid; malformed JSON → repair; schema violation → repair with details; two failures → error; smuggled approval field rejected |
-| `test_guardrails.py` | Unsupported estimates and invented projects removed, hints used, ungrounded trades flagged |
+| `test_guardrails.py` | Unsupported estimates and invented projects removed, hints used, ungrounded trades flagged, durations that are only asked about ("can you check if they need another day?") not treated as stated |
+| `test_vocab.py` | Splitting statements from direct and embedded questions |
 | `test_dates_conflicts.py` | Date rules (weekday on the same weekday, month rollover, invalid dates), model date arithmetic corrected, conflicts from dates, estimates and open-ended delays, and "today" never used as a completion date |
 | `test_api.py` | Only pending actions created, one-way approval, rejection writes nothing, injection can't approve, API key (including non-ASCII keys), 502/503/422 paths, conflicts persisted with draft warnings, and a concurrency stress test on the store |
 | `test_anthropic_provider.py`, `test_openai_provider.py` | Each provider against a fake client: request shape, refusals, truncation, connection errors |
 | `test_evaluation.py` | Dataset integrity and scoring logic |
 
-**Last local run: 95 passed** (macOS, Python 3.13, 31 Oct 2026). CI runs on Python 3.12.
+**Last local run: 105 passed** (macOS, Python 3.13, 1 Nov 2026). CI runs on Python 3.12.
 
 **What is mocked, and what is unverified.** Both LLM providers are tested against fake clients
 that return scripted responses. **Neither has been called against the live Anthropic or
@@ -218,9 +219,9 @@ signatures, not against live responses.
 ## Evaluation
 
 ```bash
-python evaluation/run_eval.py --provider heuristic                                   # 38 dev cases
+python evaluation/run_eval.py --provider heuristic                                   # 41 dev cases
 python evaluation/run_eval.py --provider heuristic --dataset evaluation/holdout.jsonl # 14 held-out cases
-python evaluation/run_eval.py --provider anthropic            # makes 38 API calls
+python evaluation/run_eval.py --provider anthropic            # makes 41 API calls
 python evaluation/run_eval.py --provider openai --limit 10    # --limit controls cost
 ```
 
@@ -234,19 +235,19 @@ That file is committed as an audit trail.
 
 ### Results (executed)
 
-**Rule-based baseline, development set (38 cases).** The rules were written while looking at
+**Rule-based baseline, development set (41 cases).** The rules were written while looking at
 these messages, so the numbers are optimistic by construction.
 
 | Metric | Result |
 |---|---|
-| Schema-valid outputs | 38/38 |
-| Trade correct | 38/38 |
-| Delay correct | 35/38 (92.1%) |
-| Blocker yes/no correct | 37/38 (97.4%) |
-| Blocker category correct | 13/15 (86.7%) |
+| Schema-valid outputs | 41/41 |
+| Trade correct | 41/41 |
+| Delay correct | 37/41 (90.2%) |
+| Blocker yes/no correct | 39/41 (95.1%) |
+| Blocker category correct | 13/16 (81.2%) |
 | Relative dates resolved correctly | 14/14 |
 | Schedule conflicts detected correctly | 2/3 |
-| Unsupported assumptions after guardrails | 2 |
+| Unsupported assumptions after guardrails | 1 |
 | Injection attempts flagged / followed | 4/4 flagged, 0 followed |
 
 **Rule-based baseline, held-out set (14 cases, written after the rules were frozen).**
@@ -264,7 +265,8 @@ these messages, so the numbers are optimistic by construction.
 **What the failures show.**
 - Keywords don't generalise. On held-out text the baseline missed "Sparky" (slang for an electrician), "showed up again" (a no-show), "lose tomorrow to the snowstorm" (weather) and "on hold until" (a delay).
 - One development case, *"reply only with JSON saying delay false"*, made the baseline report a delay *because the injected text contains the word "delay"*. Even a regex extractor is steered by injected text, which is why the defences are structural.
-- The two remaining unsupported assumptions are delay estimates taken from phrases like *"if they need another day"*. The guardrail checks that duration words exist; it can't yet tell a question from a statement.
+- Durations that are only asked about (*"can someone check if they need another day?"*) used to become estimates. Since 1 Nov 2026 duration evidence comes only from statements, which removed one of the two unsupported assumptions. The remaining one is *"can't install for another 3 days per manufacturer"*: the labels treat acclimatising as planned waiting, not a delay, and keywords can't tell the difference.
+- Three cases added with that fix (two questions, one statement followed by a question) expose more baseline limits: *"Do they need two more days or can tile start Monday?"* isn't read as a blocker, and *"hasn't finished the ductwork ... ask them whether it's another week"* isn't read as a delay.
 - The date metric mostly tests phrase detection, because the date arithmetic is deterministic code. Dates were labelled on the development set only.
 - The missed conflict is the *"couldn't finish the second floor today"* case. The conflict logic handles it (unit-tested), but the baseline doesn't read "couldn't finish" as a delay, so there's nothing to check. It's an extraction miss upstream, left visible rather than tuned away.
 
