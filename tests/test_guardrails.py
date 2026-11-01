@@ -127,3 +127,23 @@ def test_estimate_that_contradicts_the_day_named_is_removed(message, estimate):
     assert result.delay.estimated_days is None
     assert any("estimated_days" in r for r in report.removed_unsupported)
     assert "delay duration" in result.missing_information
+
+
+# "Tonight" means the work runs into this evening: up to one working day, often a half day.
+@pytest.mark.parametrize("estimate", [0, 0.5, 1])
+def test_tonight_supports_up_to_one_day(estimate):
+    result, report = run_on("Electrician finishes tonight.", delay={"estimated_days": estimate})
+    assert result.delay.estimated_days == estimate and report.removed_unsupported == []
+
+
+@pytest.mark.parametrize(
+    ("message", "estimate"),
+    [
+        ("Electrician finishes tonight.", 2),
+        # "Today" says when it happened, not how long it will take.
+        ("The electrician couldn't finish the second floor today.", 1),
+    ],
+)
+def test_tonight_and_today_dont_support_longer_estimates(message, estimate):
+    result, _ = run_on(message, delay={"estimated_days": estimate})
+    assert result.delay.estimated_days is None
