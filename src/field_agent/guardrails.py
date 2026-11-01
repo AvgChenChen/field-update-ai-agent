@@ -27,15 +27,16 @@ def duration_supported(estimate: float, message: str, received: date) -> bool:
     Only statements count (questions are dropped by stated_text). A duration said in words
     ("two more days") supports the estimate, as before. A day word supports it only when the
     estimate equals the working days from the received date to that day: received on a Monday,
-    "back Thursday" supports 3, not 1 or 40.
+    "back Thursday" supports 3, not 1 or 40. "Tonight" supports up to one day.
     """
     statements = stated_text(message)
     if STATED_DURATION.search(statements):
         return True
-    phrases = find_date_phrases(statements)
-    if re.search(r"\btonight\b", statements, re.I):
-        phrases.append("today")
-    for phrase in phrases:
+    # "Tonight" means the work runs into this evening: anything up to one working day.
+    # "Today" isn't given the same tolerance; it usually says when something happened.
+    if re.search(r"\btonight\b", statements, re.I) and 0 <= estimate <= 1:
+        return True
+    for phrase in find_date_phrases(statements):
         day = resolve(phrase, received)
         if day is not None and working_days_between(received, day) == estimate:
             return True
