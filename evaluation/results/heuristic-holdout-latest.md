@@ -1,6 +1,6 @@
 # Evaluation: heuristic (keyword-rules-v1)
 
-Run at 20261031T165331Z on `holdout.jsonl` (14 fictional messages).
+Run at 20261101T173924Z on `holdout.jsonl` (14 fictional messages).
 
 | Metric | Result |
 |---|---|
