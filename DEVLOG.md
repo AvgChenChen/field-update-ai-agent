@@ -31,7 +31,13 @@ are the commit dates.
 - **How the cause was found:** both the baseline and the guardrail searched the whole message for duration words. Neither could tell a question from a statement. Tests were committed first and failed on the old code (`6cc4145`). `vocab.stated_text()` now drops direct questions and embedded ones ("ask them whether ..."), and both checks search only the statements. Prompt rule 2 gained the same rule, with `PROMPT_VERSION` 2026-11-01.1. Dev-set unsupported assumptions went from 2 to 1.
 - **Do differently:** evidence checks should look at the right part of the text, not just whether a word appears anywhere. New eval cases written for this fix also exposed baseline misses it doesn't address (a question-shaped blocker, and a delay phrased with "hasn't finished").
 
+## 2026-11-01: A day name supported any delay estimate
+
+- **What was wrong:** the guardrail accepted any weekday or "tomorrow" in a statement as evidence for `estimated_days`. *"Back Thursday"* received on a Monday kept an estimate of 1 (or 40) just as readily as the correct 3.
+- **How the cause was found:** the check asked *whether* duration evidence existed, never whether it agreed with the number. Tests were committed first: three contradicting estimates were kept on the old code (`e5ea247`). `guardrails.duration_supported()` now accepts a day word only when the estimate equals the working days from the received date to that day (`dates.working_days_between`). A duration said in words ("two more days") is still accepted. The evaluation now passes each case's received date to `count_unsupported` instead of using today. Baseline evaluation results are unchanged, because the rule-based provider only sets estimates from stated durations. The fix matters for model output.
+- **Do differently:** an evidence check should compare the evidence with the value, not just find it.
+
 ## Known residuals
 
-- **Day names still count as duration evidence.** The guardrail accepts "until Thursday" as support for `estimated_days`, so an LLM estimate can survive when a statement names a weekday, even if the actual duration was only asked about.
+- **A stated duration supports any number.** "Two more days" still lets an estimate of 5 through. The next step is to parse the stated amount (as the baseline's `_estimate_days` does) and compare it, the way day names are compared now.
 - **Related, in construction-ops-platform:** `clientIp` trusts the leftmost `X-Forwarded-For` value. That's only safe behind a proxy that overwrites the header; proxies that append to it (nginx `$proxy_add_x_forwarded_for`, most load balancers) leave that value client-controlled.

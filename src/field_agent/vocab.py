@@ -25,12 +25,12 @@ TRADE_EVIDENCE: dict[Trade, re.Pattern[str]] = {
     Trade.general: re.compile(r"\b(inspect(or|ion)|general contractor|site super)\b", re.I),
 }
 
-# Phrases that support a stated delay *duration*. Without one of these, an
-# estimated_days value is an unsupported assumption.
-DURATION_EVIDENCE = re.compile(
+# A duration said in words: "another day", "two more days", "a week", "4 hours".
+# Day names ("Thursday", "tomorrow") are handled separately in guardrails.duration_supported,
+# because they only support an estimate that matches the number of working days to that day.
+STATED_DURATION = re.compile(
     r"\b(\d+(\.\d+)?|one|two|three|four|five|six|seven|ten|a|an|another|couple( of)?|few|half( a)?)\s+"
-    r"(more\s+)?(business\s+|working\s+)?(day|days|week|weeks|hours?)\b"
-    r"|\b(tomorrow|tonight|next week|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b",
+    r"(more\s+)?(business\s+|working\s+)?(day|days|week|weeks|hours?)\b",
     re.I,
 )
 

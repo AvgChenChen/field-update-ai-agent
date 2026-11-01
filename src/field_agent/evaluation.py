@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any
 
 from .guardrails import count_unsupported
@@ -27,9 +28,20 @@ class CaseScore:
     predicted: dict[str, Any] = field(default_factory=dict)
 
 
-def unsupported_against_labels(x: ExtractionResult, message: str, expected: dict[str, Any], has_hint: bool) -> list[str]:
+# Every case is treated as received on this Monday unless it sets "received_on", so relative
+# dates ("Thursday") have one right answer.
+DEFAULT_RECEIVED = date(2026, 11, 2)
+
+
+def case_received(case: dict[str, Any]) -> date:
+    return date.fromisoformat(case["received_on"]) if case.get("received_on") else DEFAULT_RECEIVED
+
+
+def unsupported_against_labels(
+    x: ExtractionResult, message: str, expected: dict[str, Any], has_hint: bool, received: date
+) -> list[str]:
     """Unsupported assumptions, judged against the human labels (stricter than the text heuristics)."""
-    problems = set(count_unsupported(x, message))
+    problems = set(count_unsupported(x, message, received))
     if x.delay.estimated_days is not None and not expected["duration_stated"]:
         problems.add("estimated_days")
     if x.project_ref and not expected["project_named"] and not has_hint:
@@ -57,8 +69,8 @@ def score_case(
         trade_correct=(final.trade.value if final.trade else None) == exp["trade"],
         delay_correct=final.delay.reported == exp["delay_reported"],
         blocker_correct=final.blocker.is_blocker == exp["is_blocker"],
-        unsupported_raw=unsupported_against_labels(raw, case["message"], exp, has_hint),
-        unsupported_final=unsupported_against_labels(final, case["message"], exp, has_hint),
+        unsupported_raw=unsupported_against_labels(raw, case["message"], exp, has_hint, case_received(case)),
+        unsupported_final=unsupported_against_labels(final, case["message"], exp, has_hint, case_received(case)),
         predicted={
             "trade": final.trade.value if final.trade else None,
             "delay_reported": final.delay.reported,
