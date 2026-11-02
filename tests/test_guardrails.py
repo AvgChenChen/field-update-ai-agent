@@ -1,3 +1,5 @@
+import pytest
+
 from field_agent.guardrails import apply_guardrails, count_unsupported
 from field_agent.schemas import ExtractionResult, GuardrailReport
 
@@ -61,3 +63,24 @@ def test_adds_a_follow_up_when_information_is_missing():
 def test_count_unsupported_lists_problems_in_raw_output():
     raw = ExtractionResult.model_validate(make_result(project_ref="Birch Lane", delay={"estimated_days": 4}))
     assert count_unsupported(raw, "Electrician is not finished.") == ["estimated_days", "project_ref"]
+
+
+# A duration someone asks about is not a duration the message gives (growth plan item 10).
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Electrician couldn't finish today. Can someone check if they need another day?",
+        "Electrician couldn't finish today. Do they need two more days?",
+        "Electrician couldn't finish today, can you ask whether they need another day",
+        "Electrician couldn't finish today. Find out if it's a couple of days.",
+    ],
+)
+def test_duration_only_in_a_question_is_not_evidence(message):
+    result, report = run(message, delay={"estimated_days": 1})
+    assert result.delay.estimated_days is None
+    assert any("estimated_days" in r for r in report.removed_unsupported)
+
+
+def test_duration_stated_before_a_question_is_kept():
+    result, report = run("Electrician needs another day. Can you let the drywallers know?", delay={"estimated_days": 1})
+    assert result.delay.estimated_days == 1 and report.removed_unsupported == []

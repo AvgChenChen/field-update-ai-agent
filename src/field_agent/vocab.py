@@ -34,6 +34,35 @@ DURATION_EVIDENCE = re.compile(
     re.I,
 )
 
+# Openers of a question inside a sentence: "can you check if ...", "ask him whether ...".
+# Everything from the opener to the end of the clause is a question, not a statement.
+_EMBEDDED_QUESTION = re.compile(
+    r"(\b(can|could|would|will)\s+(you|someone|somebody|anyone)\b"
+    r"|\b(check|ask|see|find out|confirm|wondering|not sure|unsure)\b[^,;.!?]*?\b(if|whether)\b)"
+    r"[^,;]*",
+    re.I,
+)
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
+
+
+def stated_text(message: str) -> str:
+    """The parts of a message that state something, with questions removed.
+
+    "Can someone check if they need another day?" asks about a duration; it doesn't give
+    one. Direct questions (sentences ending in "?") and embedded ones ("ask whether ...")
+    are dropped, so duration evidence is only taken from statements. A plain "if" is kept:
+    "if it rains it's another day" still states a duration.
+    """
+    kept = []
+    for sentence in _SENTENCE_END.split(message.strip()):
+        if sentence.rstrip().endswith("?"):
+            continue
+        sentence = " ".join(_EMBEDDED_QUESTION.sub("", sentence).split())
+        if sentence.rstrip(" ,;.!"):
+            kept.append(sentence)
+    return " ".join(kept)
+
+
 ORDINALS = {"1st": "first", "2nd": "second", "3rd": "third", "4th": "fourth"}
 GENERIC_WORDS = {"job", "site", "project", "house", "the", "street", "unit", "home", "residence", "renovation"}
 

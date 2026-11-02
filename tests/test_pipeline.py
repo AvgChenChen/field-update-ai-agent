@@ -82,3 +82,14 @@ def test_heuristic_reads_completion_and_negation():
     assert done.work_status == "complete" and not done.delay.reported
     not_done = Extractor(HeuristicProvider()).extract("Plumber is not done yet on the ensuite.").final
     assert not_done.work_status == "in_progress"
+
+
+def test_heuristic_does_not_read_a_duration_from_a_question():
+    message = (
+        "The electrician couldn't finish the second floor today. Drywall might have to wait until Thursday. "
+        "Can someone check if they need another day?"
+    )
+    x = Extractor(HeuristicProvider()).extract(message).final
+    assert x.delay.reported
+    assert x.delay.estimated_days is None
+    assert "delay duration" in x.missing_information

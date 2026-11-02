@@ -6,7 +6,7 @@ from datetime import date
 
 from .sanitize import escape_for_prompt
 
-PROMPT_VERSION = "2026-10-31.2"
+PROMPT_VERSION = "2026-11-01.1"
 
 SYSTEM_PROMPT = """You extract structured information from short progress updates sent by people on \
 residential and light-commercial construction sites (superintendents, trades, homeowners).
@@ -18,6 +18,7 @@ You return exactly one JSON object matching the provided schema. Rules:
 dates, or durations.
 2. delay.estimated_days is a number of working days and must only be set when the message gives a duration \
 ("another day", "two more days", "pushed a week", "back Thursday"). "Probably need another day" is 1. \
+A duration that is only asked about ("can someone check if they need another day?") is not stated. \
 Otherwise leave it null.
 3. trade is the trade whose work the update is mainly about. If no trade is identifiable, use null.
 4. blocker.is_blocker is true only when some work cannot proceed until something else happens. \

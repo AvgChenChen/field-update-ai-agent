@@ -22,7 +22,7 @@ from ..schemas import (
     Severity,
     WorkStatus,
 )
-from ..vocab import trade_mentions
+from ..vocab import stated_text, trade_mentions
 from .base import ProviderResult
 
 _MESSAGE = re.compile(r"<site_message>\n(.*)\n</site_message>", re.S)
@@ -104,7 +104,7 @@ _ACTIVITIES: list[tuple[re.Pattern[str], str]] = [
 
 
 def _estimate_days(text: str) -> float | None:
-    m = _DURATION.search(text)
+    m = _DURATION.search(stated_text(text))  # a duration only asked about isn't one
     if not m:
         return None
     raw, unit = m.group(1).lower(), m.group(2).lower()
