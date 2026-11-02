@@ -285,7 +285,7 @@ and `evaluation/results/heuristic-holdout-latest.md`.
 
 ## Engineering trade-offs
 
-- **The LLM reads; code decides.** Date arithmetic, conflict detection and action proposals are deterministic, so they are testable and can't be argued with by a message.
+- **The LLM reads; code decides.** Date arithmetic, conflict detection and action proposals are deterministic, so they are testable and can't be argued with by a message. The full reasoning and rejected alternatives are in [ADR 0001](docs/adr/0001-llm-extracts-code-decides.md).
 - **Guardrails remove values rather than just flag them.** A wrong delay estimate flowing into a schedule is worse than a blank plus a follow-up question.
 - **One repair attempt, then fail.** It fixes most formatting slips and bounds cost and latency. A 502 is better than partial data.
 - **Structured outputs for Claude, JSON mode for OpenAI.** Both feed the same validator. Strict JSON-schema mode for OpenAI would need a schema rewritten to its strict-mode rules; JSON mode plus validation was simpler to keep correct.
