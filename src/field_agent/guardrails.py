@@ -7,17 +7,40 @@ schedule) and record everything they change, so a reviewer can see why.
 
 from __future__ import annotations
 
+import re
 from datetime import date
 
-from .dates import resolve
+from .dates import find_date_phrases, resolve, working_days_between
 from .schemas import ExtractionResult, GuardrailReport
-from .vocab import DURATION_EVIDENCE, GENERIC_WORDS, TRADE_EVIDENCE, normalise_words, stated_text
+from .vocab import GENERIC_WORDS, STATED_DURATION, TRADE_EVIDENCE, normalise_words, stated_text
 
 LOW_CONFIDENCE_THRESHOLD = 0.5
 
 
 def _mentions_missing(items: list[str], word: str) -> bool:
     return any(word in i.lower() for i in items)
+
+
+def duration_supported(estimate: float, message: str, received: date) -> bool:
+    """Does the message support this many working days of delay?
+
+    Only statements count (questions are dropped by stated_text). A duration said in words
+    ("two more days") supports the estimate, as before. A day word supports it only when the
+    estimate equals the working days from the received date to that day: received on a Monday,
+    "back Thursday" supports 3, not 1 or 40. "Tonight" supports up to one day.
+    """
+    statements = stated_text(message)
+    if STATED_DURATION.search(statements):
+        return True
+    # "Tonight" means the work runs into this evening: anything up to one working day.
+    # "Today" isn't given the same tolerance; it usually says when something happened.
+    if re.search(r"\btonight\b", statements, re.I) and 0 <= estimate <= 1:
+        return True
+    for phrase in find_date_phrases(statements):
+        day = resolve(phrase, received)
+        if day is not None and working_days_between(received, day) == estimate:
+            return True
+    return False
 
 
 def apply_guardrails(
@@ -28,9 +51,10 @@ def apply_guardrails(
     words = normalise_words(message)
     low = set(r.confidence.low_confidence_fields)
 
-    # 1. A delay duration needs evidence in the text ("another day", "Thursday", "2 weeks").
-    if r.delay.estimated_days is not None and not DURATION_EVIDENCE.search(stated_text(message)):
-        report.removed_unsupported.append(f"delay.estimated_days={r.delay.estimated_days:g} (no duration in message)")
+    # 1. A delay duration needs evidence in the text that agrees with it ("another day",
+    #    "2 weeks", or a day that's that many working days away).
+    if r.delay.estimated_days is not None and not duration_supported(r.delay.estimated_days, message, received):
+        report.removed_unsupported.append(f"delay.estimated_days={r.delay.estimated_days:g} (no matching duration in message)")
         r.delay.estimated_days = None
         if not _mentions_missing(r.missing_information, "duration"):
             r.missing_information.append("delay duration")
@@ -94,10 +118,11 @@ def apply_guardrails(
     return r
 
 
-def count_unsupported(result: ExtractionResult, message: str) -> list[str]:
+def count_unsupported(result: ExtractionResult, message: str, received: date | None = None) -> list[str]:
     """Used by the evaluation: which values in a *raw* extraction lack support in the message."""
     problems = []
-    if result.delay.estimated_days is not None and not DURATION_EVIDENCE.search(stated_text(message)):
+    received = received or date.today()
+    if result.delay.estimated_days is not None and not duration_supported(result.delay.estimated_days, message, received):
         problems.append("estimated_days")
     if result.project_ref:
         ref = {w for w in normalise_words(result.project_ref) if w not in GENERIC_WORDS and len(w) >= 3}

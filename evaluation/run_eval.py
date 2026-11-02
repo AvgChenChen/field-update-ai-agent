@@ -13,11 +13,11 @@ import hashlib
 import json
 import sys
 from dataclasses import asdict
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from field_agent.config import Settings
-from field_agent.evaluation import CaseScore, score_case, summarize
+from field_agent.evaluation import CaseScore, case_received, score_case, summarize
 from field_agent.extraction import ExtractionFailed, Extractor
 from field_agent.prompts import PROMPT_VERSION
 from field_agent.providers.base import ProviderRefused, ProviderUnavailable
@@ -25,8 +25,6 @@ from field_agent.providers.factory import build_provider
 from field_agent.schemas import ContextTask
 
 HERE = Path(__file__).parent
-# Every case is treated as received on this Monday, so relative dates have one right answer.
-DEFAULT_RECEIVED = date(2026, 11, 2)
 
 
 def main() -> int:
@@ -48,7 +46,7 @@ def main() -> int:
     scores: list[CaseScore] = []
     for case in cases:
         try:
-            received = date.fromisoformat(case["received_on"]) if case.get("received_on") else DEFAULT_RECEIVED
+            received = case_received(case)
             context = [ContextTask.model_validate(t) for t in case.get("schedule_context", [])]
             outcome = extractor.extract(case["message"], case.get("project_hint"), received_on=received, schedule_context=context)
             scores.append(

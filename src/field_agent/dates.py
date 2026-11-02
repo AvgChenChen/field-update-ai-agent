@@ -53,6 +53,20 @@ def resolve(text: str, received: date) -> date | None:
     return None
 
 
+def working_days_between(start: date, end: date) -> int:
+    """Working days (Mon-Fri) after `start` up to and including `end`; 0 if end <= start.
+
+    Monday to Thursday is 3 (Tue, Wed, Thu). This is the inverse of
+    conflicts.add_working_days for whole days.
+    """
+    days, d = 0, start
+    while d < end:
+        d += timedelta(days=1)
+        if d.weekday() < 5:
+            days += 1
+    return days
+
+
 def find_date_phrases(message: str) -> list[str]:
     """Date phrases in order of appearance, without duplicates."""
     seen: dict[str, None] = {}
