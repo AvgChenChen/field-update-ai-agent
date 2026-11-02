@@ -1,7 +1,10 @@
 """SQLite persistence for updates, proposed actions, and the approval outbox.
 
-SQLite keeps the prototype dependency-free. Writes go through one lock because
-FastAPI runs sync endpoints on a thread pool.
+SQLite keeps the prototype dependency-free. FastAPI runs sync endpoints on a thread
+pool and every thread shares one connection, so *every* statement (reads included)
+goes through one re-entrant lock. Without that, interleaved statements on the shared
+connection returned wrong rows or None (issue #3). A connection per request would
+allow parallel reads; at prototype scale the single lock is simpler and correct.
 """
 
 from __future__ import annotations
@@ -79,7 +82,7 @@ class Store:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA foreign_keys = ON")
         self._conn.executescript(SCHEMA)
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
 
     def save_update(
         self,
@@ -127,31 +130,33 @@ class Store:
         return self.get_update(update_id)
 
     def get_update(self, update_id: str) -> UpdateRecord:
-        row = self._conn.execute("SELECT * FROM updates WHERE id = ?", (update_id,)).fetchone()
-        if row is None:
-            raise NotFound(update_id)
-        actions = self._conn.execute("SELECT * FROM actions WHERE update_id = ? ORDER BY rowid", (update_id,)).fetchall()
-        return UpdateRecord(
-            id=row["id"],
-            received_at=row["received_at"],
-            message_redacted=row["message"],
-            message_fingerprint=row["message_fingerprint"],
-            extraction=ExtractionResult.model_validate_json(row["extraction"]),
-            guardrails=GuardrailReport.model_validate_json(row["guardrails"]),
-            conflicts=[ScheduleConflict.model_validate(c) for c in json.loads(row["conflicts"])],
-            provider=row["provider"],
-            model=row["model"],
-            actions=[self._action(a) for a in actions],
-        )
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM updates WHERE id = ?", (update_id,)).fetchone()
+            if row is None:
+                raise NotFound(update_id)
+            actions = self._conn.execute("SELECT * FROM actions WHERE update_id = ? ORDER BY rowid", (update_id,)).fetchall()
+            return UpdateRecord(
+                id=row["id"],
+                received_at=row["received_at"],
+                message_redacted=row["message"],
+                message_fingerprint=row["message_fingerprint"],
+                extraction=ExtractionResult.model_validate_json(row["extraction"]),
+                guardrails=GuardrailReport.model_validate_json(row["guardrails"]),
+                conflicts=[ScheduleConflict.model_validate(c) for c in json.loads(row["conflicts"])],
+                provider=row["provider"],
+                model=row["model"],
+                actions=[self._action(a) for a in actions],
+            )
 
     def list_actions(self, status: ActionStatus | None = None, limit: int = 100) -> list[ProposedAction]:
-        if status:
-            rows = self._conn.execute(
-                "SELECT * FROM actions WHERE status = ? ORDER BY created_at DESC LIMIT ?", (status.value, limit)
-            ).fetchall()
-        else:
-            rows = self._conn.execute("SELECT * FROM actions ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
-        return [self._action(r) for r in rows]
+        with self._lock:
+            if status:
+                rows = self._conn.execute(
+                    "SELECT * FROM actions WHERE status = ? ORDER BY created_at DESC LIMIT ?", (status.value, limit)
+                ).fetchall()
+            else:
+                rows = self._conn.execute("SELECT * FROM actions ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
+            return [self._action(r) for r in rows]
 
     def review(self, action_id: str, decision: ActionStatus, reviewer: str, note: str | None) -> ProposedAction:
         if decision is ActionStatus.pending_approval:
@@ -181,13 +186,15 @@ class Store:
         return self.get_action(action_id)
 
     def get_action(self, action_id: str) -> ProposedAction:
-        row = self._conn.execute("SELECT * FROM actions WHERE id = ?", (action_id,)).fetchone()
-        if row is None:
-            raise NotFound(action_id)
-        return self._action(row)
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM actions WHERE id = ?", (action_id,)).fetchone()
+            if row is None:
+                raise NotFound(action_id)
+            return self._action(row)
 
     def outbox_count(self) -> int:
-        return self._conn.execute("SELECT COUNT(*) FROM outbox").fetchone()[0]
+        with self._lock:
+            return self._conn.execute("SELECT COUNT(*) FROM outbox").fetchone()[0]
 
     @staticmethod
     def _action(row: sqlite3.Row) -> ProposedAction:

@@ -2,8 +2,8 @@
 
 A conflict is an upcoming task that depends on the reported trade and is planned to
 start on or before the date the reported work can be relied on. We only use dates the
-message supports (a resolved date, or the received date plus a stated delay); if the
-delay is open-ended, any dependent task starting within a week is flagged as
+message supports (a resolved *future* date, or the received date plus a stated delay); if
+the delay is open-ended, any dependent task starting within a week is flagged as
 "can't be confirmed".
 """
 
@@ -28,9 +28,12 @@ def add_working_days(start: date, n: float) -> date:
 def detect_conflicts(x: ExtractionResult, received: date, context: list[ContextTask]) -> list[ScheduleConflict]:
     if not context or x.trade is None or not (x.delay.reported or x.blocker.is_blocker):
         return []
-    dated = [m.date for m in x.relevant_dates if m.date]
-    if dated:
-        constraint: date | None = max(dated)
+    # Only future dates can say when the work will be done. "Couldn't finish today" mentions
+    # today, but means the work runs past today, so dates on or before the received date are
+    # not completion constraints (issue #2).
+    future = [m.date for m in x.relevant_dates if m.date and m.date > received]
+    if future:
+        constraint: date | None = max(future)
         basis = f"the message points to {constraint:%a %b %-d}"
     elif x.delay.estimated_days is not None:
         constraint = add_working_days(received, x.delay.estimated_days)

@@ -66,3 +66,11 @@ def test_dates_are_scored_only_when_labelled():
     wrong = {**CASE, "expected": {**CASE["expected"], "dates": {"Thursday": "2026-11-06"}}}
     assert score_case(wrong, x, x, []).dates_correct is False
     assert score_case(CASE, x, x, []).dates_correct is None
+
+
+def test_conflicts_are_scored_only_when_labelled():
+    x = ExtractionResult.model_validate(make_result())
+    labelled = {**CASE, "expected": {**CASE["expected"], "conflicts": ["Drywall"]}}
+    assert score_case(labelled, x, x, [], conflicts=["Drywall"]).conflicts_correct is True
+    assert score_case(labelled, x, x, [], conflicts=[]).conflicts_correct is False
+    assert score_case(CASE, x, x, [], conflicts=["Drywall"]).conflicts_correct is None

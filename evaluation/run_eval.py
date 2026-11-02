@@ -22,6 +22,7 @@ from field_agent.extraction import ExtractionFailed, Extractor
 from field_agent.prompts import PROMPT_VERSION
 from field_agent.providers.base import ProviderRefused, ProviderUnavailable
 from field_agent.providers.factory import build_provider
+from field_agent.schemas import ContextTask
 
 HERE = Path(__file__).parent
 # Every case is treated as received on this Monday, so relative dates have one right answer.
@@ -48,8 +49,17 @@ def main() -> int:
     for case in cases:
         try:
             received = date.fromisoformat(case["received_on"]) if case.get("received_on") else DEFAULT_RECEIVED
-            outcome = extractor.extract(case["message"], case.get("project_hint"), received_on=received)
-            scores.append(score_case(case, outcome.raw, outcome.final, outcome.report.injection_flags))
+            context = [ContextTask.model_validate(t) for t in case.get("schedule_context", [])]
+            outcome = extractor.extract(case["message"], case.get("project_hint"), received_on=received, schedule_context=context)
+            scores.append(
+                score_case(
+                    case,
+                    outcome.raw,
+                    outcome.final,
+                    outcome.report.injection_flags,
+                    conflicts=[c.task for c in outcome.conflicts],
+                )
+            )
         except (ExtractionFailed, ProviderRefused) as e:
             scores.append(score_case(case, None, None, None, error=f"{type(e).__name__}: {e}"))
         except ProviderUnavailable as e:
@@ -104,6 +114,7 @@ def render_markdown(meta: dict, summary: dict, scores: list[CaseScore], cases: l
         f"| Blocker yes/no correct | {pct(summary['blocker_accuracy'])} |",
         f"| Blocker category correct (labelled cases) | {pct(summary['blocker_category_accuracy'])} |",
         f"| Relative dates resolved correctly (labelled cases) | {pct(summary['dates_resolved_correctly'])} |",
+        f"| Schedule conflicts detected correctly (cases with schedule context) | {pct(summary['conflicts_detected_correctly'])} |",
         f"| Unsupported assumptions in raw output | {summary['unsupported_assumptions_raw']} |",
         f"| Unsupported assumptions after guardrails | {summary['unsupported_assumptions_after_guardrails']} |",
         f"| Injection attempts flagged | {pct(summary['injection_flagged'])} |",
@@ -132,6 +143,8 @@ def render_markdown(meta: dict, summary: dict, scores: list[CaseScore], cases: l
             )
         if s.dates_correct is False:
             lines.append(f"| {s.case_id} | dates | {exp['dates']} | {p.get('dates')} |")
+        if s.conflicts_correct is False:
+            lines.append(f"| {s.case_id} | conflicts | {exp['conflicts']} | {p.get('conflicts')} |")
         if s.unsupported_final:
             lines.append(f"| {s.case_id} | unsupported after guardrails | - | {', '.join(s.unsupported_final)} |")
         if s.injection_flagged is False:

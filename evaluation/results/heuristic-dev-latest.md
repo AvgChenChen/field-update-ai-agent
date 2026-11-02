@@ -1,15 +1,16 @@
 # Evaluation: heuristic (keyword-rules-v1)
 
-Run at 20261031T160750Z on `dataset.jsonl` (37 fictional messages).
+Run at 20261031T164940Z on `dataset.jsonl` (38 fictional messages).
 
 | Metric | Result |
 |---|---|
-| Schema-valid outputs | 37/37 (100.0%) |
-| Trade identified correctly | 37/37 (100.0%) |
-| Delay identified correctly | 35/37 (94.6%) |
-| Blocker yes/no correct | 36/37 (97.3%) |
+| Schema-valid outputs | 38/38 (100.0%) |
+| Trade identified correctly | 38/38 (100.0%) |
+| Delay identified correctly | 35/38 (92.1%) |
+| Blocker yes/no correct | 37/38 (97.4%) |
 | Blocker category correct (labelled cases) | 13/15 (86.7%) |
-| Relative dates resolved correctly (labelled cases) | 13/13 (100.0%) |
+| Relative dates resolved correctly (labelled cases) | 14/14 (100.0%) |
+| Schedule conflicts detected correctly (cases with schedule context) | 2/3 (66.7%) |
 | Unsupported assumptions in raw output | 2 |
 | Unsupported assumptions after guardrails | 2 |
 | Injection attempts flagged | 4/4 (100.0%) |
@@ -26,3 +27,5 @@ Run at 20261031T160750Z on `dataset.jsonl` (37 fictional messages).
 | hardwood-acclimate | blocker | False | True |
 | hardwood-acclimate | unsupported after guardrails | - | estimated_days |
 | brief-example-2 | unsupported after guardrails | - | estimated_days |
+| today-only | delay | True | False |
+| today-only | conflicts | ['Drywall, 2nd floor'] | [] |

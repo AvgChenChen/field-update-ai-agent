@@ -54,7 +54,9 @@ def create_app(settings: Settings | None = None, provider: LLMProvider | None = 
     def require_api_key(x_api_key: Annotated[str | None, Header()] = None) -> None:
         if settings.api_key is None:
             return
-        if x_api_key is None or not hmac.compare_digest(x_api_key, settings.api_key):
+        # Compare bytes: compare_digest raises TypeError on non-ASCII str, which would surface
+        # as a 500. Headers arrive latin-1 decoded; UTF-8 encoding works for any character.
+        if x_api_key is None or not hmac.compare_digest(x_api_key.encode("utf-8"), settings.api_key.encode("utf-8")):
             raise HTTPException(status_code=401, detail="Missing or invalid X-API-Key")
 
     auth = [Depends(require_api_key)]

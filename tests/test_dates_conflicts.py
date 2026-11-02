@@ -88,3 +88,22 @@ def test_no_conflicts_without_a_delay_or_context():
     )
     assert detect_conflicts(on_track, MONDAY, CONTEXT) == []
     assert detect_conflicts(ExtractionResult.model_validate(make_result()), MONDAY, []) == []
+
+
+def test_today_is_not_a_completion_date():
+    """Regression for issue #2: "couldn't finish today" must still flag tomorrow's dependent task."""
+    x = ExtractionResult.model_validate(
+        make_result(delay={"estimated_days": None}, relevant_dates=[{"text": "today", "date": "2026-11-02"}])
+    )
+    tomorrow = [ContextTask(name="Drywall", trade="drywall", planned_start=date(2026, 11, 3), depends_on_trades=["electrical"])]
+    conflicts = detect_conflicts(x, MONDAY, tomorrow)
+    assert [c.task for c in conflicts] == ["Drywall"]
+    assert conflicts[0].constraint_date is None and "can't be confirmed" in conflicts[0].explanation
+
+
+def test_future_date_still_wins_over_today():
+    x = ExtractionResult.model_validate(
+        make_result(relevant_dates=[{"text": "today", "date": "2026-11-02"}, {"text": "Thursday", "date": "2026-11-05"}])
+    )
+    conflicts = detect_conflicts(x, MONDAY, CONTEXT)
+    assert conflicts[0].constraint_date == THURSDAY

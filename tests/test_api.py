@@ -92,6 +92,13 @@ def test_api_key_is_enforced_when_configured():
     assert client.get("/health").status_code == 200  # health stays public
 
 
+def test_non_ascii_api_key_is_rejected_not_a_server_error():
+    """Regression for issue #1: compare_digest on non-ASCII str raised TypeError (HTTP 500)."""
+    client, _ = client_for(api_key="test-key-not-secret")
+    raw = "t\u00e9st-key".encode("latin-1")  # sent as raw bytes, as a real client could
+    assert client.post("/v1/extract", json={"message": "hi"}, headers={"X-API-Key": raw}).status_code == 401
+
+
 def test_malformed_llm_output_returns_502_not_a_guess():
     client, store = client_for(MockProvider(["{oops", "still not json"]))
     r = client.post("/v1/updates", json={"message": BRIEF_MESSAGE})
@@ -135,3 +142,44 @@ def test_schedule_context_produces_conflicts_and_a_draft_warning():
     assert "hold until we confirm" in warnings[0]["payload"]["draft_message"]
     assert store.get_update(update["id"]).conflicts[0].task == "Drywall 2nd floor"  # persisted
     assert store.outbox_count() == 0
+
+
+def test_store_is_safe_under_concurrent_reads_and_writes():
+    """Regression for issue #3: unlocked reads on the shared connection raised errors under load."""
+    import threading
+
+    from field_agent.schemas import ExtractionResult, GuardrailReport
+
+    store = Store(":memory:")
+    errors: list[str] = []
+    extraction = ExtractionResult.model_validate(make_result())
+
+    def writer():
+        for _ in range(100):
+            try:
+                store.save_update(
+                    message="m",
+                    message_fingerprint="f",
+                    extraction=extraction,
+                    guardrails=GuardrailReport(),
+                    provider="p",
+                    model="m",
+                    actions=[],
+                )
+            except Exception as e:  # noqa: BLE001
+                errors.append(repr(e))
+
+    def reader():
+        for _ in range(200):
+            try:
+                store.list_actions()
+                store.outbox_count()
+            except Exception as e:  # noqa: BLE001
+                errors.append(repr(e))
+
+    threads = [threading.Thread(target=writer) for _ in range(3)] + [threading.Thread(target=reader) for _ in range(3)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert errors == []
