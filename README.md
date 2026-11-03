@@ -232,6 +232,8 @@ injection cases. All cases are treated as received on Monday 2026-11-02. Each ru
 writes a case-by-case Markdown report and appends one line to
 `evaluation/results/history.jsonl` (provider, model, prompt version, dataset hash, metrics).
 That file is committed as an audit trail.
+What each metric counts, its denominator, the dev/held-out rule and the blind spots are in
+[evaluation/README.md](evaluation/README.md).
 
 ### Results (executed)
 

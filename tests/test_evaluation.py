@@ -74,3 +74,10 @@ def test_conflicts_are_scored_only_when_labelled():
     assert score_case(labelled, x, x, [], conflicts=["Drywall"]).conflicts_correct is True
     assert score_case(labelled, x, x, [], conflicts=[]).conflicts_correct is False
     assert score_case(CASE, x, x, [], conflicts=["Drywall"]).conflicts_correct is None
+
+
+def test_every_reported_metric_is_documented():
+    # evaluation/README.md defines each metric; a new metric must be documented there too.
+    doc = (ROOT / "README.md").read_text()
+    keys = summarize([]).keys()
+    assert [k for k in keys if f"`{k}`" not in doc] == []
