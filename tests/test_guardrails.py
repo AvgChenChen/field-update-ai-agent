@@ -147,3 +147,42 @@ def test_tonight_supports_up_to_one_day(estimate):
 def test_tonight_and_today_dont_support_longer_estimates(message, estimate):
     result, _ = run_on(message, delay={"estimated_days": estimate})
     assert result.delay.estimated_days is None
+
+
+# A duration said in words supports only the number it states (weeks are 5 working days).
+@pytest.mark.parametrize(
+    ("message", "estimate"),
+    [
+        ("Electrician needs two more days.", 2),
+        ("Drywall needs another week.", 5),
+        ("Framers need 2 weeks on the addition.", 10),
+        ("Tile needs 1.5 more days.", 1.5),
+        ("Painter needs a couple of days.", 2),
+        ("Insulation needs half a day.", 0.5),
+        ("Plumber needs a few more days.", 3),  # "a few" is 2 to 4 days
+        ("Plumber needs a few more days.", 4),
+        ("HVAC needs a few hours to finish.", 0.5),  # hours: up to one working day
+    ],
+)
+def test_stated_duration_supports_the_number_it_states(message, estimate):
+    result, report = run_on(message, delay={"estimated_days": estimate})
+    assert result.delay.estimated_days == estimate
+    assert report.removed_unsupported == []
+
+
+@pytest.mark.parametrize(
+    ("message", "estimate"),
+    [
+        ("Electrician needs two more days.", 5),
+        ("Drywall needs another week.", 2),
+        ("Painter needs a couple of days.", 5),
+        ("Insulation needs half a day.", 2),
+        ("Plumber needs a few more days.", 10),
+        ("HVAC needs a few hours to finish.", 3),
+    ],
+)
+def test_stated_duration_does_not_support_a_different_number(message, estimate):
+    result, report = run_on(message, delay={"estimated_days": estimate})
+    assert result.delay.estimated_days is None
+    assert any("estimated_days" in r for r in report.removed_unsupported)
+    assert "delay duration" in result.missing_information

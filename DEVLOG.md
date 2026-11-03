@@ -38,9 +38,15 @@ are the commit dates.
 - **Do differently:** an evidence check should compare the evidence with the value, not just find it.
 - **Follow-up, same day:** the exact match removed *"finishes tonight"* with a half-day estimate, which had been accepted before. "Tonight" now supports anything up to one working day. "Today" gets no such tolerance, because *"couldn't finish today"* says when something happened, not how long it will take. Tests were committed first.
 
+## 2026-11-03: A stated duration supported any delay estimate
+
+- **What was wrong:** after the day-name fix, a duration said in words still counted as evidence for *any* `estimated_days`. *"Two more days"* kept an invented estimate of 5.
+- **How the cause was found:** this was the known residual from the previous entry. Tests were committed first (`b78bb4b`): six contradicting estimates were kept on the old code. `vocab.stated_durations()` now reads each stated duration as a range of working days (digits and number words exactly, "a"/"another" = 1, "a couple of" = 2, "half a" = 0.5, "a few" = 2 to 4, a week = 5, hours = up to one day). `duration_supported()` keeps an estimate only if it falls inside one of them. Baseline evaluation results are identical on both sets, because the rule-based provider takes its estimate from the same stated number; the fix matters for model output.
+- **Do differently:** when a fix covers one kind of evidence, write down which kinds it leaves, so the next fix has a test to start from.
+
 ## Known residuals
 
-- **A stated duration supports any number.** "Two more days" still lets an estimate of 5 through. The next step is to parse the stated amount (as the baseline's `_estimate_days` does) and compare it, the way day names are compared now.
+- **Stated durations need an exact match, except "a few".** *"At least two days"* supports 2 but not 3, and in *"two or three days"* only "three days" is read, so an estimate of 2 is removed. Reading ranges and "at least" is the next step; until then a removed estimate becomes a follow-up question, not a wrong number.
 - **Day names need an exact match.** Received on a Monday, *"back Thursday"* supports 3 days but not 2, although "back Thursday" could mean the crew loses Tuesday and Wednesday only. Allowing one day either side is the alternative. Exact was chosen because it's easier to reason about, and a removed estimate becomes a follow-up question, not a wrong number.
 - **Past-tense day names resolve forward.** In *"Inspector came Monday, electrician is behind"* (received on a Monday), "Monday" resolves to next Monday, so an estimate of 5 is kept. Date resolution has always assumed day names point forward; telling past from future needs the verb tense.
-- **Related, in construction-ops-platform:** `clientIp` trusts the leftmost `X-Forwarded-For` value. That's only safe behind a proxy that overwrites the header; proxies that append to it (nginx `$proxy_add_x_forwarded_for`, most load balancers) leave that value client-controlled.
+- **Related, in construction-ops-platform:** `clientIp` trusted the leftmost `X-Forwarded-For` value. Fixed on 2026-11-03 (construction-ops-platform#7): it now reads the entry `TRUST_PROXY_HOPS` places from the right.
