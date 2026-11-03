@@ -10,7 +10,13 @@ import hashlib
 import re
 
 _EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
-_PHONE = re.compile(r"(?<!\w)(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}(?!\w)")
+# North American numbers (optional +1, brackets, dots, dashes or spaces), or any number written
+# with a "+" country code, e.g. +44 20 7946 0958. A trailing extension ("ext. 22", "x22") is part
+# of the number. Dates (2026-11-02), sizes (2x4) and short ids don't have the 3-3-4 or "+" shape.
+_NANP = r"(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}"
+_INTERNATIONAL = r"\+\d{1,3}(?:[\s.-]?\d{2,4}){2,5}"
+_EXTENSION = r"(?:\s*(?:ext\.?|extension|x)\s*\d{1,5})?"
+_PHONE = re.compile(rf"(?<!\w)(?:{_NANP}|{_INTERNATIONAL}){_EXTENSION}(?!\w)", re.IGNORECASE)
 
 
 def redact(text: str) -> str:
