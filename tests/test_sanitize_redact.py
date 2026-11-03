@@ -56,3 +56,36 @@ def test_fingerprint_is_stable_and_short():
     assert fingerprint("abc") == fingerprint("abc")
     assert fingerprint("abc") != fingerprint("abd")
     assert len(fingerprint("abc")) == 12
+
+
+# Formats seen in real site texts. Each must come out with no digits of the number (or any
+# part of the address) left behind. Example numbers use the reserved 555-01xx range.
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("Call +1 416 555 0199 when you're here", "Call [phone] when you're here"),
+        ("Office is 416.555.0199", "Office is [phone]"),
+        ("Super's cell (416) 555-0199", "Super's cell [phone]"),
+        ("Front desk 416-555-0142 ext. 22", "Front desk [phone]"),
+        ("Front desk 416-555-0142 x22", "Front desk [phone]"),
+        ("Supplier in London: +44 20 7946 0958", "Supplier in London: [phone]"),
+        ("Text 4165550199", "Text [phone]"),
+        ("Email dana+site@mail.brightwire.example", "Email [email]"),
+        ("cc J.Smith@Ops-Team.Example.CA", "cc [email]"),
+    ],
+)
+def test_redacts_common_phone_and_email_formats(text, expected):
+    assert redact(text) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Pour moved to 2026-11-02, forms stay up till 2026-11-09",
+        "Need 40 more 2x4 studs and 12 sheets of 4x8 drywall",
+        "Beam is 12' 6\" long, 3 1/2 inch bearing",
+        "Inspection at 7:30, permit 2026-0412",
+    ],
+)
+def test_dates_measurements_and_ids_are_not_redacted(text):
+    assert redact(text) == text
