@@ -12,7 +12,7 @@ from datetime import date
 
 from .dates import find_date_phrases, resolve, working_days_between
 from .schemas import ExtractionResult, GuardrailReport
-from .vocab import GENERIC_WORDS, STATED_DURATION, TRADE_EVIDENCE, normalise_words, stated_text
+from .vocab import GENERIC_WORDS, TRADE_EVIDENCE, normalise_words, stated_durations, stated_text
 
 LOW_CONFIDENCE_THRESHOLD = 0.5
 
@@ -24,13 +24,16 @@ def _mentions_missing(items: list[str], word: str) -> bool:
 def duration_supported(estimate: float, message: str, received: date) -> bool:
     """Does the message support this many working days of delay?
 
-    Only statements count (questions are dropped by stated_text). A duration said in words
-    ("two more days") supports the estimate, as before. A day word supports it only when the
-    estimate equals the working days from the received date to that day: received on a Monday,
-    "back Thursday" supports 3, not 1 or 40. "Tonight" supports up to one day.
+    Only statements count (questions are dropped by stated_text). Evidence has to agree with
+    the number, not just exist:
+    - a duration said in words supports only what it states, read by vocab.stated_durations
+      ("two more days" supports 2, not 5; "another week" supports 5; "a few days" 2 to 4);
+    - a day word supports the working days from the received date to that day: received on a
+      Monday, "back Thursday" supports 3, not 1 or 40;
+    - "tonight" supports up to one day.
     """
     statements = stated_text(message)
-    if STATED_DURATION.search(statements):
+    if any(low <= estimate <= high for low, high in stated_durations(statements)):
         return True
     # "Tonight" means the work runs into this evening: anything up to one working day.
     # "Today" isn't given the same tolerance; it usually says when something happened.

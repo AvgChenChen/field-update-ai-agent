@@ -29,10 +29,51 @@ TRADE_EVIDENCE: dict[Trade, re.Pattern[str]] = {
 # Day names ("Thursday", "tomorrow") are handled separately in guardrails.duration_supported,
 # because they only support an estimate that matches the number of working days to that day.
 STATED_DURATION = re.compile(
-    r"\b(\d+(\.\d+)?|one|two|three|four|five|six|seven|ten|a|an|another|couple( of)?|few|half( a)?)\s+"
-    r"(more\s+)?(business\s+|working\s+)?(day|days|week|weeks|hours?)\b",
+    r"\b(?P<amount>\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|an?|another"
+    r"|couple(?: of)?|few|half(?: an?)?)\s+"
+    r"(?:more\s+)?(?:business\s+|working\s+)?(?P<unit>days?|weeks?|hours?)\b",
     re.I,
 )
+
+# How many of the unit each amount means, as (lowest, highest). Only "few" is a range.
+_AMOUNTS: dict[str, tuple[float, float]] = {
+    **{w: (n, n) for n, w in enumerate(["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"], 1)},
+    "a": (1, 1),
+    "an": (1, 1),
+    "another": (1, 1),
+    "couple": (2, 2),
+    "couple of": (2, 2),
+    "few": (2, 4),
+    "half": (0.5, 0.5),
+    "half a": (0.5, 0.5),
+    "half an": (0.5, 0.5),
+}
+WORKDAYS_PER_WEEK = 5
+HOURS_PER_WORKDAY = 8
+
+
+def stated_durations(text: str) -> list[tuple[float, float]]:
+    """Every duration said in `text`, as a (lowest, highest) number of working days.
+
+    The rule, so estimates can be checked against it:
+    - digits and number words mean exactly that many ("1.5 days", "two more days");
+    - "a", "an" and "another" mean 1; "a couple of" means 2; "half a" means 0.5;
+    - "a few" means 2 to 4;
+    - a week is 5 working days ("another week" = 5, "2 weeks" = 10);
+    - hours mean up to one working day, or more for over 8 hours ("a few hours" = 0 to 1).
+    """
+    found = []
+    for m in STATED_DURATION.finditer(text):
+        amount, unit = m.group("amount").lower(), m.group("unit").lower()
+        low, high = (float(amount), float(amount)) if amount[0].isdigit() else _AMOUNTS[amount]
+        if unit.startswith("week"):
+            found.append((low * WORKDAYS_PER_WEEK, high * WORKDAYS_PER_WEEK))
+        elif unit.startswith("hour"):
+            found.append((0.0, max(1.0, high / HOURS_PER_WORKDAY)))
+        else:
+            found.append((low, high))
+    return found
+
 
 # Openers of a question inside a sentence: "can you check if ...", "ask him whether ...".
 # Everything from the opener to the end of the clause is a question, not a statement.
