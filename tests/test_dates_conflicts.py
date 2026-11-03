@@ -107,3 +107,35 @@ def test_future_date_still_wins_over_today():
     )
     conflicts = detect_conflicts(x, MONDAY, CONTEXT)
     assert conflicts[0].constraint_date == THURSDAY
+
+
+FRIDAY = date(2026, 11, 6)
+SUNDAY = date(2026, 11, 8)
+
+
+@pytest.mark.parametrize(
+    "text,received,expected",
+    [
+        # The four cases from the task, predicted before running.
+        ("next Monday", MONDAY, date(2026, 11, 9)),
+        ("Friday", FRIDAY, date(2026, 11, 13)),  # said on a Friday → next week's
+        ("tomorrow", date(2026, 11, 30), date(2026, 12, 1)),  # across a month end
+        ("Monday", date(2026, 12, 26), date(2026, 12, 28)),  # Saturday, across the year's last weekend
+        # "next <day>" is that day in the following Monday-to-Sunday week, like "next week".
+        ("next Friday", MONDAY, date(2026, 11, 13)),
+        ("next Friday", THURSDAY, date(2026, 11, 13)),
+        ("next Monday", SUNDAY, date(2026, 11, 9)),
+        # "this <day>" is the same as the bare day name.
+        ("this Friday", MONDAY, date(2026, 11, 6)),
+        # Month and year ends.
+        ("Jan 2", date(2026, 12, 30), date(2027, 1, 2)),
+        ("next week", SUNDAY, date(2026, 11, 9)),
+    ],
+)
+def test_resolve_same_weekday_next_and_month_ends(text, received, expected):
+    assert resolve(text, received) == expected
+
+
+def test_next_and_this_stay_attached_to_the_day_name():
+    msg = "Electrician is back next Friday, drywall this Thursday."
+    assert find_date_phrases(msg) == ["next Friday", "this Thursday"]

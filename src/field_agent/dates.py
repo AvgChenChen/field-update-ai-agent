@@ -7,8 +7,12 @@ calendar arithmetic, and a wrong date silently corrupts a schedule.
 Rules (documented in the README):
 - "today" → received date; "tomorrow" → +1 day.
 - A weekday name → the next such day *after* the received date. If the message was
-  received on that weekday, "Thursday" means next week's Thursday.
-- "next week" → Monday of the following week.
+  received on that weekday, "Thursday" means next week's Thursday. "This Thursday" is
+  the same as "Thursday".
+- "next week" → Monday of the following week (weeks run Monday to Sunday).
+- "next Thursday" → Thursday of that following week. Received on Monday Nov 2, "next
+  Friday" is Fri Nov 13, not Fri Nov 6; received on Sunday Nov 8, "next Monday" is the
+  next day, Mon Nov 9, because a new week starts then.
 - "Nov 5" / "November 5" → that date this year, or next year if it would be more
   than 60 days in the past.
 """
@@ -24,7 +28,7 @@ MONTHS = {
 }
 
 DATE_PHRASES = re.compile(
-    r"\b(today|tomorrow|next week|(?:mon|tues|wednes|thurs|fri|satur|sun)day"
+    r"\b(today|tomorrow|next week|(?:(?:next|this)\s+)?(?:mon|tues|wednes|thurs|fri|satur|sun)day"
     r"|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+\d{1,2}(?:st|nd|rd|th)?)\b",
     re.I,
 )
@@ -38,6 +42,12 @@ def resolve(text: str, received: date) -> date | None:
         return received + timedelta(days=1)
     if t == "next week":
         return received + timedelta(days=7 - received.weekday())
+    m = re.fullmatch(r"(next|this)\s+([a-z]+)", t)
+    if m and m.group(2) in WEEKDAYS:
+        if m.group(1) == "this":
+            return resolve(m.group(2), received)
+        following_monday = received + timedelta(days=7 - received.weekday())
+        return following_monday + timedelta(days=WEEKDAYS.index(m.group(2)))
     if t in WEEKDAYS:
         ahead = (WEEKDAYS.index(t) - received.weekday()) % 7
         return received + timedelta(days=ahead or 7)
