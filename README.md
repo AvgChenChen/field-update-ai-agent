@@ -203,7 +203,7 @@ pip-audit --skip-editable
 | `test_pipeline.py` | **Mocked LLM responses**: valid; malformed JSON → repair; schema violation → repair with details; two failures → error; smuggled approval field rejected |
 | `test_guardrails.py` | Unsupported estimates and invented projects removed, hints used, ungrounded trades flagged, durations that are only asked about ("can you check if they need another day?") not treated as stated, and day names ("back Thursday") supporting only an estimate that matches them |
 | `test_vocab.py` | Splitting statements from direct and embedded questions |
-| `test_dates_conflicts.py` | Date rules (weekday on the same weekday, month rollover, invalid dates), model date arithmetic corrected, conflicts from dates, estimates and open-ended delays, and "today" never used as a completion date |
+| `test_dates_conflicts.py` | Date rules (weekday on the same weekday, "next"/"this" weekdays, month and year rollover, invalid dates), model date arithmetic corrected, conflicts from dates, estimates and open-ended delays, and "today" never used as a completion date |
 | `test_api.py` | Only pending actions created, one-way approval, rejection writes nothing, injection can't approve, API key (including non-ASCII keys), 502/503/422 paths, conflicts persisted with draft warnings, and a concurrency stress test on the store |
 | `test_anthropic_provider.py`, `test_openai_provider.py` | Each provider against a fake client: request shape, refusals, truncation, connection errors |
 | `test_evaluation.py` | Dataset integrity and scoring logic |
