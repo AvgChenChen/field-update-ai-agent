@@ -4,7 +4,7 @@ import pytest
 
 from field_agent.extraction import ExtractionFailed, Extractor
 from field_agent.prompts import SYSTEM_PROMPT
-from field_agent.providers.base import ProviderUnavailable
+from field_agent.providers.base import MalformedOutput, ProviderUnavailable
 from field_agent.providers.heuristic import HeuristicProvider
 from field_agent.providers.mock import MockProvider
 
@@ -46,6 +46,30 @@ def test_two_bad_outputs_fail_instead_of_guessing():
     provider = MockProvider(["not json at all", json.dumps({"trade": "electrical"})])
     with pytest.raises(ExtractionFailed, match="after one repair attempt"):
         Extractor(provider).extract(BRIEF_MESSAGE)
+    assert len(provider.calls) == 2  # one repair, never a third call
+
+
+def test_provider_reported_malformed_output_gets_the_repair_attempt(valid_json):
+    """A truncated or unparseable answer the provider itself detects is repaired like any other bad output."""
+    provider = MockProvider([MalformedOutput("response was truncated (max_tokens)"), valid_json])
+    outcome = Extractor(provider).extract(BRIEF_MESSAGE)
+    assert outcome.report.repair_attempted is True
+    assert len(provider.calls) == 2
+    assert "truncated" in provider.calls[1][1]
+
+
+def test_provider_reported_malformed_output_on_the_repair_fails_cleanly():
+    provider = MockProvider(["{oops", MalformedOutput("response was truncated (max_tokens)")])
+    with pytest.raises(ExtractionFailed, match="after one repair attempt"):
+        Extractor(provider).extract(BRIEF_MESSAGE)
+
+
+def test_provider_without_repair_fails_on_the_first_bad_output():
+    provider = MockProvider(["not json at all"])
+    provider.supports_repair = False  # like the deterministic heuristic provider
+    with pytest.raises(ExtractionFailed, match="not valid JSON"):
+        Extractor(provider).extract(BRIEF_MESSAGE)
+    assert len(provider.calls) == 1
 
 
 def test_output_that_tries_to_add_an_approval_field_is_rejected():
