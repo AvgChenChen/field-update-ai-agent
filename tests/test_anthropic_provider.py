@@ -1,7 +1,6 @@
 """The Anthropic provider is tested against a fake client. No network calls, no API key."""
 
 import json
-import logging
 from types import SimpleNamespace
 
 import anthropic
@@ -102,16 +101,6 @@ def test_other_sdk_parse_failures_do_not_quote_the_error():
     with pytest.raises(MalformedOutput) as excinfo:
         AnthropicProvider(client=client).complete("s", "u")
     assert PHONE not in str(excinfo.value)
-
-
-@pytest.fixture
-def agent_logs(caplog):
-    # The app's logging setup stops field_agent propagating to the root logger, so attach directly.
-    logger = logging.getLogger("field_agent")
-    logger.addHandler(caplog.handler)
-    caplog.set_level(logging.DEBUG, logger="field_agent")
-    yield caplog
-    logger.removeHandler(caplog.handler)
 
 
 def test_message_text_in_an_sdk_validation_error_reaches_neither_logs_nor_the_error(agent_logs):
