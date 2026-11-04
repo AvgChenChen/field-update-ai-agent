@@ -5,12 +5,14 @@ from fastapi.testclient import TestClient
 
 from field_agent.api import create_app
 from field_agent.config import Settings
+from field_agent.providers.anthropic_provider import AnthropicProvider
 from field_agent.providers.base import MalformedOutput, ProviderUnavailable
 from field_agent.providers.heuristic import HeuristicProvider
 from field_agent.providers.mock import MockProvider
 from field_agent.store import Store
 
 from .conftest import BRIEF_MESSAGE, make_result
+from .test_anthropic_provider import PHONE, fake_client, sdk_validation_error
 
 
 def client_for(provider=None, **settings):
@@ -111,6 +113,17 @@ def test_truncated_llm_output_returns_502_not_a_server_error():
     client, store = client_for(MockProvider([truncated, truncated]))
     r = client.post("/v1/updates", json={"message": BRIEF_MESSAGE})
     assert r.status_code == 502 and r.json()["error"] == "extraction_failed"
+    assert store.list_actions() == []
+
+
+def test_502_detail_does_not_quote_the_models_output():
+    """An SDK ValidationError quotes the model's output, which can repeat the message (a phone number here)."""
+    fake, _ = fake_client(error=sdk_validation_error())
+    client, store = client_for(AnthropicProvider(client=fake))
+    r = client.post("/v1/updates", json={"message": f"Crew is out, call {PHONE}"})
+    assert r.status_code == 502 and r.json()["error"] == "extraction_failed"
+    assert PHONE not in r.text
+    assert "trade: Input should be" in r.json()["detail"]
     assert store.list_actions() == []
 
 

@@ -116,10 +116,10 @@ def agent_logs(caplog):
 
 def test_message_text_in_an_sdk_validation_error_reaches_neither_logs_nor_the_error(agent_logs):
     client, _ = fake_client(error=sdk_validation_error())
-    # ExtractionFailed (the 502 detail) once provider errors get the repair attempt; MalformedOutput before.
-    with pytest.raises((ExtractionFailed, MalformedOutput)) as excinfo:
+    with pytest.raises(ExtractionFailed) as excinfo:  # its text becomes the 502 detail
         Extractor(AnthropicProvider(client=client)).extract(f"Crew is out, call {PHONE}")
     assert PHONE not in str(excinfo.value)
+    assert "extraction_repair" in {r.getMessage() for r in agent_logs.records}  # the error was logged
     for record in agent_logs.records:
         assert PHONE not in record.getMessage()
         assert PHONE not in json.dumps(record.__dict__, default=str)
