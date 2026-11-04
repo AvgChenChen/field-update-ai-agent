@@ -14,7 +14,7 @@ import pydantic
 from .conflicts import detect_conflicts
 from .guardrails import apply_guardrails
 from .prompts import SYSTEM_PROMPT, build_repair_prompt, build_user_prompt
-from .providers.base import LLMProvider, MalformedOutput
+from .providers.base import LLMProvider, MalformedOutput, ProviderResult
 from .redact import fingerprint
 from .sanitize import detect_injection, normalize
 from .schemas import ContextTask, ExtractionResult, GuardrailReport, ScheduleConflict
@@ -57,6 +57,12 @@ class Extractor:
         self.provider = provider
         self.max_message_chars = max_message_chars
 
+    def _attempt(self, user_prompt: str) -> tuple[ProviderResult, ExtractionResult]:
+        """One provider call plus validation. Bad output raises MalformedOutput, whether the provider
+        detected it (truncated, unparseable) or _validate did, so both get the same single repair."""
+        result = self.provider.complete(SYSTEM_PROMPT, user_prompt)
+        return result, _validate(result.text)
+
     def extract(
         self,
         message: str,
@@ -76,17 +82,15 @@ class Extractor:
             report.warnings.append(f"message_truncated: only the first {self.max_message_chars} characters were analysed")
 
         user_prompt = build_user_prompt(clean, project_hint, sender_role, received)
-        result = self.provider.complete(SYSTEM_PROMPT, user_prompt)
         try:
-            raw = _validate(result.text)
+            result, raw = self._attempt(user_prompt)
         except MalformedOutput as first_error:
             if not self.provider.supports_repair:
                 raise ExtractionFailed(str(first_error)) from first_error
             report.repair_attempted = True
             log.warning("extraction_repair", extra={"request_id": request_id, "error": str(first_error)[:200]})
-            result = self.provider.complete(SYSTEM_PROMPT, build_repair_prompt(user_prompt, str(first_error)))
             try:
-                raw = _validate(result.text)
+                result, raw = self._attempt(build_repair_prompt(user_prompt, str(first_error)))
             except MalformedOutput as second_error:
                 raise ExtractionFailed(f"invalid output after one repair attempt: {second_error}") from second_error
 
