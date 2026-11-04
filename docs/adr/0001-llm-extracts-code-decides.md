@@ -21,7 +21,7 @@ How one message moves through `Extractor.extract` ([extraction.py](../../src/fie
 | Put the message inside delimiters as data | `prompts.build_user_prompt` | code |
 | **Read the message and fill in the schema** | `provider.complete(SYSTEM_PROMPT, …)` | **LLM** |
 | Parse and validate; unknown fields are rejected (`extra="forbid"`) | `extraction._validate` | code |
-| Repair once if invalid, then fail with a 502 | `provider.complete(…, build_repair_prompt(…))` | **LLM** (bounded to one retry) |
+| Repair once if invalid, then fail with a 502 | `Extractor._attempt(build_repair_prompt(…))`, see [EXTRACTION_FLOW](../EXTRACTION_FLOW.md) | **LLM** (bounded to one retry) |
 | Remove values the message doesn't support; recompute dates | `guardrails.apply_guardrails`, `guardrails.duration_supported`, `dates.resolve` | code |
 | Find conflicts with upcoming tasks | `conflicts.detect_conflicts`, `conflicts.add_working_days` | code |
 | Turn validated fields into proposed actions, all `pending_approval` | `actions.propose_actions` | code |
