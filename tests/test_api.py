@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from field_agent.api import create_app
 from field_agent.config import Settings
-from field_agent.providers.base import ProviderUnavailable
+from field_agent.providers.base import MalformedOutput, ProviderUnavailable
 from field_agent.providers.heuristic import HeuristicProvider
 from field_agent.providers.mock import MockProvider
 from field_agent.store import Store
@@ -101,6 +101,14 @@ def test_non_ascii_api_key_is_rejected_not_a_server_error():
 
 def test_malformed_llm_output_returns_502_not_a_guess():
     client, store = client_for(MockProvider(["{oops", "still not json"]))
+    r = client.post("/v1/updates", json={"message": BRIEF_MESSAGE})
+    assert r.status_code == 502 and r.json()["error"] == "extraction_failed"
+    assert store.list_actions() == []
+
+
+def test_truncated_llm_output_returns_502_not_a_server_error():
+    truncated = MalformedOutput("response was truncated (max_tokens)")
+    client, store = client_for(MockProvider([truncated, truncated]))
     r = client.post("/v1/updates", json={"message": BRIEF_MESSAGE})
     assert r.status_code == 502 and r.json()["error"] == "extraction_failed"
     assert store.list_actions() == []

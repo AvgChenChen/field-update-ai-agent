@@ -44,6 +44,12 @@ are the commit dates.
 - **How the cause was found:** this was the known residual from the previous entry. Tests were committed first (`b78bb4b`): six contradicting estimates were kept on the old code. `vocab.stated_durations()` now reads each stated duration as a range of working days (digits and number words exactly, "a"/"another" = 1, "a couple of" = 2, "half a" = 0.5, "a few" = 2 to 4, a week = 5, hours = up to one day). `duration_supported()` keeps an estimate only if it falls inside one of them. Baseline evaluation results are identical on both sets, because the rule-based provider takes its estimate from the same stated number; the fix matters for model output.
 - **Do differently:** when a fix covers one kind of evidence, write down which kinds it leaves, so the next fix has a test to start from.
 
+## 2026-11-04: A truncated model reply returned 500 instead of a repair (AGT-006)
+
+- **What was wrong:** when a provider itself raised `MalformedOutput` (a reply cut off at `max_tokens`, no text block, or an SDK parse failure), the extractor skipped the repair and the API returned HTTP 500. Invalid text returned by the provider was repaired and ended in a 502 as designed.
+- **How the cause was found:** while drawing the sequence diagram for docs/EXTRACTION_FLOW.md. `provider.complete()` was called outside the `try` that catches `MalformedOutput`, so only errors from `_validate` were handled. A probe through the API with a scripted truncated reply returned 500 after one call. The call and the validation now happen together in `Extractor._attempt`, and tests cover a truncated first reply, a truncated repair, and the API's 502.
+- **Do differently:** when an exception type can come from more than one place, check that every place that raises it is inside the handler. Tests had only scripted bad *text*, never a provider raising the error itself.
+
 ## 2026-11-04: A provider parse error could carry message text
 
 - **What was wrong:** when the Anthropic SDK couldn't parse the model's answer into `ExtractionResult`, the provider raised `MalformedOutput(str(e)[:500])`. `str()` of a Pydantic `ValidationError` quotes the input (`input_value='Crew is out, call 416-555-0199'`), so fragments of the model's output, and through it the site message, ended up in the error text. That text is what the pipeline logs in `extraction_repair`, sends back in the repair prompt, and returns as the 502 `detail`. The README promises logs hold metadata only.
