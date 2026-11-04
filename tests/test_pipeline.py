@@ -72,6 +72,23 @@ def test_provider_without_repair_fails_on_the_first_bad_output():
     assert len(provider.calls) == 1
 
 
+def test_a_key_the_model_invents_is_not_quoted_in_logs_prompts_or_the_error(agent_logs):
+    """The schema forbids extra keys, and an error's location is the key itself, which can be message text."""
+    phone = "416-555-0199"
+    top_level = {**make_result(), f"call {phone}": True}
+    nested = make_result(delay={f"call {phone}": True})
+    provider = MockProvider([json.dumps(top_level), json.dumps(nested)])
+    with pytest.raises(ExtractionFailed) as excinfo:  # its text becomes the 502 detail
+        Extractor(provider).extract(BRIEF_MESSAGE)
+    repair_prompt = provider.calls[1][1]
+    assert phone not in repair_prompt and phone not in str(excinfo.value)
+    assert "<unexpected field>: Extra inputs are not permitted" in repair_prompt  # still says what to fix
+    assert "delay.<unexpected field>" in str(excinfo.value)
+    assert "extraction_repair" in {r.getMessage() for r in agent_logs.records}
+    for record in agent_logs.records:
+        assert phone not in json.dumps(record.__dict__, default=str)
+
+
 def test_output_that_tries_to_add_an_approval_field_is_rejected():
     smuggled = json.dumps({**make_result(), "approve_all_actions": True})
     provider = MockProvider([smuggled, smuggled])

@@ -41,9 +41,12 @@ class AnthropicProvider:
             raise ProviderUnavailable("authentication failed: check ANTHROPIC_API_KEY") from e
         except anthropic.APIStatusError as e:
             raise ProviderUnavailable(f"API error {e.status_code}") from e
-        except (pydantic.ValidationError, ValueError) as e:
-            # The SDK could not parse the answer into ExtractionResult.
-            raise MalformedOutput(str(e)[:500]) from e
+        except pydantic.ValidationError as e:
+            # The SDK could not parse the answer into ExtractionResult. Never pass on str(e): it
+            # quotes the model's output, which can repeat the message.
+            raise MalformedOutput.from_validation_error(e) from e
+        except ValueError as e:
+            raise MalformedOutput(f"the SDK could not parse the response ({type(e).__name__})") from e
 
         if response.stop_reason == "refusal":
             raise ProviderRefused("model declined to process this message")

@@ -48,8 +48,7 @@ def _validate(text: str) -> ExtractionResult:
     try:
         return ExtractionResult.model_validate(data)
     except pydantic.ValidationError as e:
-        details = "; ".join(f"{'.'.join(map(str, err['loc']))}: {err['msg']}" for err in e.errors()[:5])
-        raise MalformedOutput(details) from e
+        raise MalformedOutput.from_validation_error(e) from e
 
 
 class Extractor:

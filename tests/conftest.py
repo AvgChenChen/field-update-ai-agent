@@ -1,4 +1,5 @@
 import json
+import logging
 
 import pytest
 
@@ -25,6 +26,16 @@ def make_result(**overrides) -> dict:
         else:
             base[key] = value
     return base
+
+
+@pytest.fixture
+def agent_logs(caplog):
+    # The app's logging setup stops field_agent propagating to the root logger, so attach directly.
+    logger = logging.getLogger("field_agent")
+    logger.addHandler(caplog.handler)
+    caplog.set_level(logging.DEBUG, logger="field_agent")
+    yield caplog
+    logger.removeHandler(caplog.handler)
 
 
 @pytest.fixture
