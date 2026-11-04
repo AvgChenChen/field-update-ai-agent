@@ -200,7 +200,7 @@ pip-audit --skip-editable
 |---|---|
 | `test_schemas.py` | Bad enums, out-of-range values and **extra fields** (e.g. `approved: true`) are rejected |
 | `test_sanitize_redact.py` | Injection patterns fire, ordinary messages don't, delimiters can't be closed, phones and emails are redacted |
-| `test_pipeline.py` | **Mocked LLM responses**: valid; malformed JSON → repair; schema violation → repair with details; two failures → error; smuggled approval field rejected |
+| `test_pipeline.py` | **Mocked LLM responses**: valid; malformed JSON → repair; schema violation → repair with details; truncated reply → repair; two failures → error after exactly two calls; no repair for the heuristic provider; smuggled approval field rejected. Each path is mapped in [docs/EXTRACTION_FLOW.md](docs/EXTRACTION_FLOW.md) |
 | `test_guardrails.py` | Unsupported estimates and invented projects removed, hints used, ungrounded trades flagged, durations that are only asked about ("can you check if they need another day?") not treated as stated, and day names ("back Thursday") supporting only an estimate that matches them |
 | `test_vocab.py` | Splitting statements from direct and embedded questions |
 | `test_dates_conflicts.py` | Date rules (weekday on the same weekday, "next"/"this" weekdays, month and year rollover, invalid dates), model date arithmetic corrected, conflicts from dates, estimates and open-ended delays, and "today" never used as a completion date |
@@ -289,7 +289,7 @@ and `evaluation/results/heuristic-holdout-latest.md`.
 
 - **The LLM reads; code decides.** Date arithmetic, conflict detection and action proposals are deterministic, so they are testable and can't be argued with by a message. The full reasoning and rejected alternatives are in [ADR 0001](docs/adr/0001-llm-extracts-code-decides.md).
 - **Guardrails remove values rather than just flag them.** A wrong delay estimate flowing into a schedule is worse than a blank plus a follow-up question.
-- **One repair attempt, then fail.** It fixes most formatting slips and bounds cost and latency. A 502 is better than partial data.
+- **One repair attempt, then fail.** It fixes most formatting slips and bounds cost and latency. A 502 is better than partial data. The sequence, the tests for each path and the cost reasoning are in [docs/EXTRACTION_FLOW.md](docs/EXTRACTION_FLOW.md).
 - **Structured outputs for Claude, JSON mode for OpenAI.** Both feed the same validator. Strict JSON-schema mode for OpenAI would need a schema rewritten to its strict-mode rules; JSON mode plus validation was simpler to keep correct.
 - **No server-side model fallback for refusals.** A refusal returns `422 provider_refused`, which a person handles. Construction updates rarely trigger refusals; adding a fallback is a small change if real traffic shows otherwise.
 
