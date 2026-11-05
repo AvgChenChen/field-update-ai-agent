@@ -289,6 +289,7 @@ and `evaluation/results/heuristic-holdout-latest.md`.
 - **Secrets.** All keys come from the environment; `.env` is gitignored. API-key comparison is constant-time.
 - **Abuse limits.** Requests are capped at 4,000 characters (2,000 analysed, with truncation reported) and 50 schedule-context tasks.
 - **Dependencies.** Installs resolve only to releases published before a fixed date (`[tool.uv] exclude-newer`) as a supply-chain precaution. That date was moved forward once to take security fixes in `certifi` and `filelock`. `pip-audit` reports no known vulnerabilities and is a blocking CI step.
+- **Container.** The image runs as uid:gid `1001:1001`, numeric so Kubernetes' `runAsNonRoot` can verify it, and has a `HEALTHCHECK` on `/health`. Only `/app/data` (the SQLite database) is writable by that user; a volume mounted there must be writable by uid 1001 too. CI runs the built image and checks the uid isn't 0, that Docker reports it healthy, and that `POST /v1/updates` can write to the database. `tests/test_dockerfile.py` checks the same rules in the Dockerfile without Docker.
 
 ## Engineering trade-offs
 

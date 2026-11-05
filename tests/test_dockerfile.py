@@ -8,7 +8,10 @@ import re
 from pathlib import Path
 
 DOCKERFILE = (Path(__file__).resolve().parents[1] / "Dockerfile").read_text()
-LINES = [line.strip() for line in DOCKERFILE.splitlines() if line.strip() and not line.lstrip().startswith("#")]
+# One entry per instruction: comments dropped, "\" continuation lines joined as Docker does.
+LINES = [
+    line.strip() for line in re.sub(r"\\\n", " ", DOCKERFILE).splitlines() if line.strip() and not line.lstrip().startswith("#")
+]
 
 
 def instructions(name: str) -> list[str]:
