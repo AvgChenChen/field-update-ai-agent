@@ -1,14 +1,14 @@
 # Evaluation: heuristic (keyword-rules-v1)
 
-Run at 20261101T173924Z on `holdout.jsonl` (14 fictional messages).
+Run at 20261105T103518Z on `holdout.jsonl` (24 fictional messages).
 
 | Metric | Result |
 |---|---|
-| Schema-valid outputs | 14/14 (100.0%) |
-| Trade identified correctly | 12/14 (85.7%) |
-| Delay identified correctly | 8/14 (57.1%) |
-| Blocker yes/no correct | 11/14 (78.6%) |
-| Blocker category correct (labelled cases) | 2/7 (28.6%) |
+| Schema-valid outputs | 24/24 (100.0%) |
+| Trade identified correctly | 18/24 (75.0%) |
+| Delay identified correctly | 13/24 (54.2%) |
+| Blocker yes/no correct | 18/24 (75.0%) |
+| Blocker category correct (labelled cases) | 6/14 (42.9%) |
 | Relative dates resolved correctly (labelled cases) | n/a |
 | Schedule conflicts detected correctly (cases with schedule context) | n/a |
 | Unsupported assumptions in raw output | 0 |
@@ -36,3 +36,18 @@ Run at 20261101T173924Z on `holdout.jsonl` (14 fictional messages).
 | h-island | delay | True | False |
 | h-returns | category | predecessor_incomplete | other |
 | h-permit | delay | True | False |
+| h-cc-sparky-meter | trade | electrical | None |
+| h-cc-sparky-meter | delay | True | False |
+| h-cc-tile-typos | trade | flooring | None |
+| h-cc-wall-moved | trade | plumbing | framing |
+| h-cc-wall-moved | delay | True | False |
+| h-cc-gate-code | delay | True | False |
+| h-cc-gate-code | blocker | True | False |
+| h-cc-gate-code | category | access | not a blocker |
+| h-cc-roof-wind | delay | True | False |
+| h-cc-roof-wind | blocker | True | False |
+| h-cc-roof-wind | category | weather | not a blocker |
+| h-cc-mudders | trade | drywall | None |
+| h-cc-pump-truck | delay | True | False |
+| h-cc-pump-truck | blocker | True | False |
+| h-cc-pump-truck | category | other | not a blocker |

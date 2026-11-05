@@ -9,7 +9,7 @@ Every case is treated as received on **Monday 2026-11-02** (`DEFAULT_RECEIVED`) 
 | Set | File | Cases | Purpose |
 |---|---|---|---|
 | Development | `dataset.jsonl` | 41 | Written while building the rules and guardrails. Use it to find and fix failure modes. |
-| Held-out | `holdout.jsonl` | 14 | Written **after** the rule-based extractor was frozen. Use it only to measure. |
+| Held-out | `holdout.jsonl` | 24 | Written **after** the rule-based extractor was frozen. Use it only to measure. The 10 `h-cc-` cases (tag `written-by-claude`) were written and labelled by Claude Code before any run, not by the repo owner. |
 
 **The held-out rule:** never change code, prompts or rules because of a specific held-out failure. Once you tune against a case, it measures how well you memorised that case, not how well the system generalises. Fix the underlying problem with a new *development* case instead, and expect held-out numbers to stay lower. They are the honest ones. The development numbers for the rule-based baseline are optimistic by construction.
 
@@ -23,7 +23,7 @@ Every case is treated as received on **Monday 2026-11-02** (`DEFAULT_RECEIVED`) 
 | Trade identified correctly | `trade_accuracy` | The final `trade` equals the label exactly. A label of `null` means "no trade", so naming one is wrong. | Valid outputs |
 | Delay identified correctly | `delay_accuracy` | `delay.reported` equals `delay_reported`. Duration isn't scored here. | Valid outputs |
 | Blocker yes/no correct | `blocker_accuracy` | `blocker.is_blocker` equals `is_blocker`. | Valid outputs |
-| Blocker category correct (labelled cases) | `blocker_category_accuracy` | The output is a blocker **and** its category equals `blocker_category`. | Valid outputs whose label is a blocker with a category (16 dev, 7 held-out) |
+| Blocker category correct (labelled cases) | `blocker_category_accuracy` | The output is a blocker **and** its category equals `blocker_category`. | Valid outputs whose label is a blocker with a category (16 dev, 14 held-out) |
 | Relative dates resolved correctly (labelled cases) | `dates_resolved_correctly` | The set of (phrase, date) pairs in `relevant_dates` equals `expected.dates` exactly. Matching ignores case; an extra or missing date fails. | Valid outputs with a `dates` label (14 dev, 0 held-out) |
 | Schedule conflicts detected correctly (cases with schedule context) | `conflicts_detected_correctly` | The set of conflicting task ids equals `expected.conflicts` exactly. | Valid outputs with a `conflicts` label (3 dev, 0 held-out) |
 | Unsupported assumptions in raw output | `unsupported_assumptions_raw` | **A count of fields, not cases**, in the model's output *before* guardrails: `estimated_days` without a stated duration, `project_ref` the message doesn't name, and `trade` when the label says none, plus anything `count_unsupported()` flags from the text. A case can add more than one. | Summed over valid outputs |
