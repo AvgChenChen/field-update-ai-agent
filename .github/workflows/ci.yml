@@ -37,3 +37,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t field-update-ai-agent:ci .
+      - name: Smoke-test the container (non-root, healthy, can write its database)
+        run: |
+          set -eu
+          image=field-update-ai-agent:ci
+          docker image ls "$image"
+          uid=$(docker run --rm "$image" id -u)
+          echo "uid: $uid"
+          test "$uid" != "0"
+          docker run -d --name agent -p 8000:8000 "$image"
+          status=starting
+          for _ in $(seq 1 30); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' agent)
+            [ "$status" = healthy ] && break
+            sleep 2
+          done
+          echo "health: $status"
+          test "$status" = healthy
+          curl -fsS http://127.0.0.1:8000/health
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8000/v1/updates \
+            -H 'Content-Type: application/json' -d '{"message": "Drywall is finished on the second floor."}')
+          echo "POST /v1/updates: $code"
+          test "$code" = 201
+      - name: Container logs
+        if: always()
+        run: docker logs agent 2>&1 | tail -50 || true
