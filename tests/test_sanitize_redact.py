@@ -89,3 +89,15 @@ def test_redacts_common_phone_and_email_formats(text, expected):
 )
 def test_dates_measurements_and_ids_are_not_redacted(text):
     assert redact(text) == text
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("Contact naïve@exámple.com today", "Contact [email] today"),
+        ("Email 用户@例子.公司 after lunch", "Email [email] after lunch"),
+        ("Mail user@xn--bcher-kva.example", "Mail [email]"),
+    ],
+)
+def test_redacts_internationalized_email_addresses(text, expected):
+    assert redact(text) == expected

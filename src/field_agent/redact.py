@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import re
 
-_EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+_EMAIL = re.compile(r"[\w.+%-]+@(?:[\w-]+\.)+[\w-]{2,}")
 # North American numbers (optional +1, brackets, dots, dashes or spaces), or any number written
 # with a "+" country code, e.g. +44 20 7946 0958. A trailing extension ("ext. 22", "x22") is part
 # of the number. Dates (2026-11-02), sizes (2x4) and short ids don't have the 3-3-4 or "+" shape.
